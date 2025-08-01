@@ -281,25 +281,48 @@ fi
 # check user input for skip this step or not
 read -p "Execute step 8: install and configure neovim with lazyvim? (y/n) " nvim_choice
 if [ "$nvim_choice" == "y" ]; then
-    # Backup existing neovim config if it exists
+    echo "Installing LazyVim using the official starter template..."
+    
+    # Make comprehensive backup of current Neovim files (as per official docs)
     if [ -d "$ACTUAL_HOME/.config/nvim" ]; then
         echo "Backing up existing neovim configuration for $ACTUAL_USER..."
-        sudo -u "$ACTUAL_USER" mv "$ACTUAL_HOME/.config/nvim" "$ACTUAL_HOME/.config/nvim.backup.$(date +%Y%m%d_%H%M%S)"
+        sudo -u "$ACTUAL_USER" mv "$ACTUAL_HOME/.config/nvim" "$ACTUAL_HOME/.config/nvim.bak"
+    fi
+    
+    # Optional but recommended backups
+    if [ -d "$ACTUAL_HOME/.local/share/nvim" ]; then
+        echo "Backing up neovim shared data..."
+        sudo -u "$ACTUAL_USER" mv "$ACTUAL_HOME/.local/share/nvim" "$ACTUAL_HOME/.local/share/nvim.bak"
+    fi
+    
+    if [ -d "$ACTUAL_HOME/.local/state/nvim" ]; then
+        echo "Backing up neovim state data..."
+        sudo -u "$ACTUAL_USER" mv "$ACTUAL_HOME/.local/state/nvim" "$ACTUAL_HOME/.local/state/nvim.bak"
+    fi
+    
+    if [ -d "$ACTUAL_HOME/.cache/nvim" ]; then
+        echo "Backing up neovim cache..."
+        sudo -u "$ACTUAL_USER" mv "$ACTUAL_HOME/.cache/nvim" "$ACTUAL_HOME/.cache/nvim.bak"
     fi
     
     # Create .config directory if it doesn't exist
     sudo -u "$ACTUAL_USER" mkdir -p "$ACTUAL_HOME/.config"
     
-    # Clone LazyVim as the target user
-    sudo -u "$ACTUAL_USER" git clone https://github.com/LazyVim/LazyVim.git "$ACTUAL_HOME/.config/nvim"
-    # check the results of the LazyVim installation
+    # Clone the LazyVim starter template (official method)
+    sudo -u "$ACTUAL_USER" git clone https://github.com/LazyVim/starter "$ACTUAL_HOME/.config/nvim"
+    
     if [ $? -eq 0 ]; then
+        # Remove the .git folder so user can add it to their own repo later
+        sudo -u "$ACTUAL_USER" rm -rf "$ACTUAL_HOME/.config/nvim/.git"
+        
         # Ensure proper ownership
         chown -R "$ACTUAL_UID:$ACTUAL_GID" "$ACTUAL_HOME/.config/nvim"
-        echo "[/] LazyVim installed successfully for $ACTUAL_USER."
+        
+        echo "[/] LazyVim starter installed successfully for $ACTUAL_USER."
         echo "    Please restart your terminal and run 'nvim' to complete the setup."
+        echo "    Run ':LazyHealth' after installation to verify everything is working."
     else
-        echo "[X] Failed to install LazyVim for $ACTUAL_USER."
+        echo "[X] Failed to install LazyVim starter for $ACTUAL_USER."
     fi
 fi
 
