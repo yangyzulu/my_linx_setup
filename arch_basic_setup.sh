@@ -14,6 +14,24 @@
 
 # Install basic packages for Arch Linux setup
 
+# Determine the actual user and home directory (since script runs as root)
+if [ "$SUDO_USER" ]; then
+    ACTUAL_USER="$SUDO_USER"
+    ACTUAL_HOME=$(eval echo "~$SUDO_USER")
+    ACTUAL_UID=$(id -u "$SUDO_USER")
+    ACTUAL_GID=$(id -g "$SUDO_USER")
+else
+    ACTUAL_USER="$USER"
+    ACTUAL_HOME="$HOME"
+    ACTUAL_UID=$(id -u)
+    ACTUAL_GID=$(id -g)
+fi
+
+echo "Script running as: $(whoami)"
+echo "Target user: $ACTUAL_USER"
+echo "Target home directory: $ACTUAL_HOME"
+echo ""
+
 # Check if the script is run as root
 if [ "$(id -u)" -ne 0 ]; then
     echo "This script must be run as root. Please use sudo."
@@ -85,23 +103,29 @@ fi
 # check user input for skip this step or not
 read -p "Execute step 3: install yay for AUR package management? (y/n) " yay_choice
 if [ "$yay_choice" == "y" ]; then
-    git clone https://aur.archlinux.org/yay-bin.git
+    # Switch to a temporary directory in the user's home
+    temp_dir="$ACTUAL_HOME/yay-build-temp"
+    sudo -u "$ACTUAL_USER" mkdir -p "$temp_dir"
+    cd "$temp_dir"
+    
+    sudo -u "$ACTUAL_USER" git clone https://aur.archlinux.org/yay-bin.git
     if [ $? -ne 0 ]; then
         echo "[X] Failed to clone yay-bin repository."
+        rm -rf "$temp_dir"
         exit 1
     fi
     cd yay-bin
-    makepkg -si --noconfirm
+    sudo -u "$ACTUAL_USER" makepkg -si --noconfirm
     if [ $? -eq 0 ]; then
         echo "[/] yay installed successfully."
     else
         echo "[X] Failed to install yay."
         cd ..
-        rm -rf yay-bin
+        rm -rf "$temp_dir"
         exit 1
     fi
     cd ..
-    rm -rf yay-bin
+    rm -rf "$temp_dir"
 fi
 
 # Set up timeshift for system snapshots
@@ -120,16 +144,6 @@ fi
 
 # Install and set up grub-btrfs
 # check user input for skip this step or not
-# - Install `sudo pacman -S grub-btrfs`
-#   - Test the script `sudo /etc/grub.d/41_snapshots-btrfs`
-#   - Run this once `sudo grub-mkconfig -o /boot/grub/grub.cfg`
-#   - Check the entry `ls /boot/grub/grub-btrfs.cfg`
-# - Install `sudo pacman -S inotify-tools`
-# - Change config file from Snapper to Timeshift
-#   - Replace the grub-btrfs config file with the one from this repository
-#   - `sudo cp ./grub-btrfs.service /usr/lib/systemd/system/grub-btrfsd.service`
-# - Auto start the daemon `sudo systemctl enable grub-btrfsd` and start it `sudo systemctl start grub-btrfsd`
-# - Check the service health `journalctl -f`, if no error = OK
 read -p "Execute step 5: install and set up grub-btrfs? (y/n) " grub_choice
 if [ "$grub_choice" == "y" ]; then
     sudo pacman -S --noconfirm grub-btrfs inotify-tools
@@ -187,7 +201,7 @@ if [ "$autosnap_choice" == "y" ]; then
         exit 1
     fi
     
-    yay -S --noconfirm timeshift-autosnap
+    sudo -u "$ACTUAL_USER" yay -S --noconfirm timeshift-autosnap
     if [ $? -ne 0 ]; then
         echo "[X] Failed to install timeshift-autosnap."
         exit 1
@@ -199,7 +213,7 @@ if [ "$autosnap_choice" == "y" ]; then
     echo "Installing brave-bin to test timeshift-autosnap functionality..."
     # check the results of the timeshift-autosnap installation
     # by install some package and check the snapshot
-    yay -S --noconfirm brave-bin
+    sudo -u "$ACTUAL_USER" yay -S --noconfirm brave-bin
     
     # Wait a moment for snapshot creation
     sleep 5
@@ -232,7 +246,7 @@ if [ "$zsh_choice" == "y" ]; then
     
     # Check if yay is available for font installation
     if command -v yay &> /dev/null; then
-        yay -S --noconfirm ttf-meslo-nerd
+        sudo -u "$ACTUAL_USER" yay -S --noconfirm ttf-meslo-nerd
         if [ $? -eq 0 ]; then
             echo "[/] Meslo Nerd Font installed successfully."
         else
@@ -242,21 +256,24 @@ if [ "$zsh_choice" == "y" ]; then
         echo "[!] yay not available, skipping font installation."
     fi
     
-    # Change default shell to zsh for current user
-    chsh -s $(which zsh)
+    # Change default shell to zsh for target user
+    chsh -s $(which zsh) "$ACTUAL_USER"
     if [ $? -eq 0 ]; then
-        echo "[/] Default shell changed to zsh."
+        echo "[/] Default shell changed to zsh for $ACTUAL_USER."
     else
-        echo "[X] Failed to change default shell to zsh."
+        echo "[X] Failed to change default shell to zsh for $ACTUAL_USER."
     fi
     
-    # Install Oh My Zsh
-    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+    # Install Oh My Zsh for the target user
+    sudo -u "$ACTUAL_USER" sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
     # check the results of the oh-my-zsh installation
     if [ $? -eq 0 ]; then
-        echo "[/] Oh My Zsh installed successfully."
+        # Ensure proper ownership of zsh configuration
+        chown -R "$ACTUAL_UID:$ACTUAL_GID" "$ACTUAL_HOME/.oh-my-zsh" 2>/dev/null || true
+        chown "$ACTUAL_UID:$ACTUAL_GID" "$ACTUAL_HOME/.zshrc" 2>/dev/null || true
+        echo "[/] Oh My Zsh installed successfully for $ACTUAL_USER."
     else
-        echo "[X] Failed to install Oh My Zsh."
+        echo "[X] Failed to install Oh My Zsh for $ACTUAL_USER."
     fi
 fi
 
@@ -265,18 +282,63 @@ fi
 read -p "Execute step 8: install and configure neovim with lazyvim? (y/n) " nvim_choice
 if [ "$nvim_choice" == "y" ]; then
     # Backup existing neovim config if it exists
-    if [ -d ~/.config/nvim ]; then
-        echo "Backing up existing neovim configuration..."
-        mv ~/.config/nvim ~/.config/nvim.backup.$(date +%Y%m%d_%H%M%S)
+    if [ -d "$ACTUAL_HOME/.config/nvim" ]; then
+        echo "Backing up existing neovim configuration for $ACTUAL_USER..."
+        sudo -u "$ACTUAL_USER" mv "$ACTUAL_HOME/.config/nvim" "$ACTUAL_HOME/.config/nvim.backup.$(date +%Y%m%d_%H%M%S)"
     fi
     
-    git clone https://github.com/LazyVim/LazyVim.git ~/.config/nvim
+    # Create .config directory if it doesn't exist
+    sudo -u "$ACTUAL_USER" mkdir -p "$ACTUAL_HOME/.config"
+    
+    # Clone LazyVim as the target user
+    sudo -u "$ACTUAL_USER" git clone https://github.com/LazyVim/LazyVim.git "$ACTUAL_HOME/.config/nvim"
     # check the results of the LazyVim installation
     if [ $? -eq 0 ]; then
-        echo "[/] LazyVim installed successfully."
+        # Ensure proper ownership
+        chown -R "$ACTUAL_UID:$ACTUAL_GID" "$ACTUAL_HOME/.config/nvim"
+        echo "[/] LazyVim installed successfully for $ACTUAL_USER."
         echo "    Please restart your terminal and run 'nvim' to complete the setup."
     else
-        echo "[X] Failed to install LazyVim."
+        echo "[X] Failed to install LazyVim for $ACTUAL_USER."
+    fi
+fi
+
+# Set the aliases for zsh
+# check user input for skip this step or not
+read -p "Execute step 9: set up zsh aliases? (y/n) " alias_choice
+if [ "$alias_choice" == "y" ]; then
+    ZSHRC_PATH="$ACTUAL_HOME/.zshrc"
+
+    if [ -f "$ZSHRC_PATH" ]; then
+        echo "Setting up zsh aliases for user $ACTUAL_USER..."
+        
+        # Function to add alias if it doesn't already exist
+        add_alias() {
+            local alias_line="$1"
+            if ! grep -Fxq "$alias_line" "$ZSHRC_PATH"; then
+                echo "$alias_line" >> "$ZSHRC_PATH"
+            fi
+        }
+        
+        add_alias "alias ll='eza --icons -la'"
+        add_alias "alias vim='nvim'"
+        add_alias "alias cls='clear'"
+        add_alias "alias update='sudo pacman -Syu'"
+        add_alias "alias install='yay -S'"
+        add_alias "alias remove='yay -Rns'"
+        add_alias "alias search='yay -Ss'"
+        add_alias "alias clean='yay -Rns \$(yay -Qdtq || true) && yay -Sc --noconfirm'"
+        add_alias "alias ls='eza --icons'"
+        add_alias "alias cat='bat'"
+        add_alias "alias grep='grep --color=auto'"
+        add_alias "alias fzf='fzf --preview \"bat --style=numbers --color=always --line-range :500 {}\"'"
+        
+        # Ensure proper ownership of .zshrc
+        chown "$ACTUAL_UID:$ACTUAL_GID" "$ZSHRC_PATH"
+        
+        echo "[/] Zsh aliases set up successfully for $ACTUAL_USER."
+    else
+        echo "[X] $ZSHRC_PATH file not found. Please ensure zsh is installed and configured for $ACTUAL_USER."
     fi
 fi
 
@@ -285,7 +347,7 @@ echo "========================================="
 echo "  Arch Linux Basic Setup Complete!"
 echo "========================================="
 echo ""
-echo "Summary of what was configured:"
+echo "Summary of what was configured for user: $ACTUAL_USER"
 echo "- System packages and development tools"
 echo "- yay AUR helper (if selected)"
 echo "- Timeshift for system snapshots (if selected)"
@@ -293,6 +355,9 @@ echo "- GRUB-BTRFS for snapshot booting (if selected)"
 echo "- Timeshift-autosnap for automatic snapshots (if selected)"
 echo "- Zsh with Oh My Zsh (if selected)"
 echo "- Neovim with LazyVim (if selected)"
+echo "- Shell aliases for enhanced productivity (if selected)"
+echo ""
+echo "All user-specific configurations have been applied to: $ACTUAL_HOME"
 echo ""
 echo "Next steps:"
 echo "1. Restart your terminal to use zsh (if installed)"
