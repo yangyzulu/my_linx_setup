@@ -24,19 +24,36 @@
   
   - Complete each step carefully
   
+  - Select `...Network manager...` on the network section
+  
+  - Install extra pacakage 
+    
+    ```shell
+    - git
+    - wget
+    - curl
+    - neovim
+    - zsh
+    - base-devel
+    - gcc
+    - cmake
+    ```
+  
   - **Tips :** type `/` for search anything in the list menu, very useful for list selection
 
 - Installation will **<u>not</u>** included any desktop environtment
 
-## Hyprland install
+- Reboot the system
+
+## Basic desktop environtment install
 
 - Update the system `sudo pacman -Syu`
 
-- Install login manager `sudo pacman -S gdm`
+- Install login manager and terminal `sudo pacman -S gdm kitty`
 
-- Install hyprland `sudo pacman -S hyprland kitty`
+- Install Samba support for Nautilus `sudo pacman -S samba gvfs-smb`
 
-- Install hyprland accessories `sudo pacman -S hyprlock hyprpaper hypr
+- Reboot the system, you should find the working login screen. Now the basic environment is ready for the next installation
 
 ## Snapshot system
 
@@ -52,13 +69,43 @@
 
 - Disable NetworkManager-wait-online.service
 
-- Install Timeshift and make the first backup
-
-- Setup grub-btrfs (for access snapshot directly via grub)  
+- Install `Timeshift` , `sudo pacman -S timeshift`
   
-  - !! **<mark>Don't use</mark>** *grub-customizer* as it will proxy the grub configuration and **<u>prevent</u>** the snapshot submenu entries to load correctly !!
+  - Make the first backup `sudo timeshift --create --comments "First snap" --tags D`
 
-- Install [**Timeshift-autosnap**](https://github.com/wmutschl/timeshift-autosnap-apt)
+- Setup `grub-btrfs` (for access snapshot directly via grub)  
+  
+  - !! **<u>Don't use</u>** *grub-customizer* as it will proxy the grub configuration and **<u>prevent</u>** the snapshot submenu entries to load correctly !!
+  - Install `sudo pacman -S grub-btrfs`
+    - Test the script `sudo /etc/grub.d/41_snapshots-btrfs`
+    - Run this once `sudo grub-mkconfig -o /boot/grub/grub.cfg`
+    - Check the entry `ls /boot/grub/grub-btrfs.cfg`
+  - Install `sudo pacman -S inotify-tools`
+  - Change config file from Snapper to Timeshift
+    - `sudo systemctl edit --full grub-btrfsd`
+    - Looking for `./snapper` , change to `-t` and save the file
+  - Auto start the daemon `sudo systemctl enable grub-btrfsd` and start it `sudo systemctl enable grub-btrfsd`
+  - Check the service health `journalctl -f`, if no error = OK
+
+- Install [YAY: Yet another Yogurt - An AUR Helper written in Go](https://github.com/Jguer/yay)
+  
+  ```bash
+  sudo pacman -S --needed git base-devel && git clone https://aur.archlinux.org/yay-bin.git && cd yay-bin && makepkg -si
+  ```
+  
+  - Use `yay -Y --gendb` to generate a development package database for `*-git` packages that were installed without yay. This command should only be run once.
+  
+  - `yay -Syu --devel` will then check for development package updates
+  
+  - Use `yay -Y --devel --save` to make development package updates permanently enabled (`yay` and `yay -Syu` will then always check dev packages)
+
+- Install [**Timeshift-autosnap**](https://github.com/wmutschl/timeshift-autosnap-apt) 
+  
+  - `yay -S timeshift-autosnap`
+  
+  - Change configuration if needed, `sudo nano /etc/timeshift-autosnap.conf`
+  
+  - Can test with install something `sudo pacman -S brave-bin`, the snapshot should created automatically
 
 - Test and confirm that snapshot entries accessible
   
@@ -76,6 +123,8 @@
   
   - After snapshot submenu verification, change the setting back to normal
 
+## Necessary applications
+
 - Install the lastest MESA driver (VGA driver, recommended for AMD GPU) (detected <u>some bug</u> with 25.04)
   
   ```bash
@@ -92,9 +141,8 @@
   
   - Bitwarden extension
   - Line extension
-  - Amplenote capture extension
 
-- Install [Thinkfan](https://github.com/vmatare/thinkfan) and set fan level base on temp. Use thinkfan.conf in this folder. (*<u>No need for 25.04</u>*, default power manager can set the fan to 0 RPM and 24.04 can't)
+- Install [Thinkfan](https://github.com/vmatare/thinkfan) and set fan level base on temp. Use thinkfan.conf in this folder. (*<u>No need for 25.04</u>*, default power manager can set the fan to 0 RPM but 24.04 can't)
 
 - Install Flatpak & Flathub
   
@@ -102,9 +150,9 @@
 
 - Install Font manager and install Thai Sarabun from google font (inside the Font manager option)
 
-- Install [MarkText](https://github.com/marktext/marktext/releases) via link or flatpak
+- Install [MarkText](https://github.com/marktext/marktext/releases) via `yay -S marktext` or flatpak
 
-- Install zsh `sudo apt install zsh`
+- Install zsh `sudo pacman -S zsh`
   
   Make it your default shell: `chsh -s $(which zsh)`
 
@@ -136,7 +184,7 @@
   ```bash
   # exist code . . .
   # add below
-  alias ls="eza -l --icons -s extension"
+  alias ls="eza -l --icons -s type"
   # alias add_ssh="ssh-add ~/.ssh/eos_gitea"
   ```
 
@@ -148,7 +196,7 @@
 
 - Install [logiops](https://github.com/PixlOne/logiops/releases) (unlock Logitech MX master mouse potential, use the conf file inside the folder)
 
-- Install Mission Center via flatpak
+- Install Mission Center via flatpak, Or `btop`
 
 - Install [Rustdesk](https://github.com/rustdesk/rustdesk/releases/tag/1.4.0)
 
@@ -173,13 +221,114 @@
 
 - Install [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) (Recommended only install on early 24.04)
 
+## Hyprland ricing session
+
+- Install hyprland `sudo pacman -S hyprland kitty ttf-meslo-nerd brave-bin`
+
+- Install hyprland accessories `sudo pacman -S hyprlock hyprpaper hypridle kanshi`
+
+- <mark>TODO</mark> Test `waybar` or use `hyprpanel`
+
+- <mark>TODO</mark> Test `wofi` or `rofi`
+
+- Clone the dotfile from Github 
+  
+  `git clone https://github.com/yangyzulu/my_linx_setup.git` 
+  
+  or copy from samba NAS, mount drive using `nautilus`
+  
+  `smb://nkrafapegasus.synology.me/satellite/dotfiles`
+
+- Run `install.sh`, the script will put all the files inside the folder to where they belong <mark>TODO</mark> make the `install.sh` script *(don't foget Kanshi systemd setup)*
+
+- **<mark>URGENT</mark>** This rice is fricken awsome, [GitHub - caelestia-dots/caelestia: A very segsy rice](https://github.com/caelestia-dots/caelestia)
+  
+  - Start with install entire shell then tweaking it later
+  
+  - Go with manual installation (`yay` should be installed)
+    
+    ```bash
+      yay -S hyprland hyprpicker hypridle xdg-desktop-portal-hyprland xdg-desktop-portal-gtk wl-clipboard cliphist bluez-utils inotify-tools wireplumber trash-cli foot fastfetch btop jq socat imagemagick curl adw-gtk-theme papirus-icon-theme qt5ct qt6ct ttf-jetbrains-mono-nerd zsh app2unit
+      # not necessary for me
+      fish starship
+    ```
+
+- <mark>TODO</mark> Adapt Omarchy config to my config (touchpad gesture, animation, keybinding)
+
+- <mark>TODO </mark> Try setup screencapture button on waybar using `hyprshot` or looking for 
+
+- <mark>TODO</mark> Make Monitor mode button work with Kanshi.
+  
+  - Make `waybar` or `hyprpanel` custom module. Execute `kanshi {profile name}` when press the button or click on the panel.
+
+- <mark>TODO</mark> Install `LazyVim`
+
+- <mark>TODO</mark> Setup `Window rules` for pop up dialog 
+
+- Install GTK-Theme for GTK app
+  
+  - Install GTK theme selector `sudo pacman -S nwg-look`
+  
+  - Clone the [Graphite gtk theme](https://github.com/vinceliuice/Graphite-gtk-theme?tab=readme-ov-file) 
+    
+    ```bash
+    git clone https://github.com/vinceliuice/Graphite-gtk-theme.git
+    ```
+  
+  - Install the theme
+    
+    ```bash
+    sudo ./install.sh -c dark -s standard -s compact -l -g --tweaks black rimless
+    ```
+  
+  - Run `nwg-look` , select the theme, adjust font rendering `font aa: rgba`
+
+- Install `suda.vim` plugin into LazyVim 
+  
+  - Create a new file under the lua/plugins directory (if it doesn't exist, create it). For example:  `nvim ~/.config/nvim/lua/plugins/suda.lua`
+  
+  - Add the following Lua code to register `suda.vim` as a plugin:
+    
+    ```lua
+    return {
+      "lambdalisue/suda.vim",
+    }
+    ```
+  
+  - Save the file and restart Neovim. The LazyVim will automatically clone the plugin and install it
+  
+  - Usage:
+    
+    ```vim
+    # Read with sudo
+    :SudaRead
+    # Write with sudo
+    :SudaWrite
+    ```
+
+- Install `CarbonFox` theme to LazyVim (Dark theme)
+  
+  - Create a new file under the lua/plugins directory (if it doesn't exist, create it). For example: `nvim ~/.config/nvim/lua/plugins/colorscheme.lua`
+  
+  - Add the following Lua code to register as a new plugin, put the blacket inside return:
+    
+    - ```lua
+      return {
+          { "EdenEast/nightfox.nvim" } -- lazy
+      }
+      ```
+  
+  - Go to Lazy home and let it clone the plugin first or just restart neovim
+  
+  - Apply the color scheme `:colorscheme carbonfox`
+
 ## In testing
 
 - Install [WineHQ](https://gitlab.winehq.org/wine/wine/-/wikis/Debian-Ubuntu) (use `devel` branch for `Line` compatibility) (**<u>Looks buggy, but usable</u>**)
 
 ---
 
-## For Gnome desktop
+## For Gnome desktop ricing
 
 - Setup keyboard shortcut
   
@@ -234,7 +383,7 @@
       sudo usermod $USER -aG i2c
       ```
     
-    - Add a special udev rules to `60-ddcutil-i2c.rules`, if the <mark>screen freeze</mark> problem occured. Disable the extension first by connect the laptop to a external display
+    - Add a special udev rules to `60-ddcutil-i2c.rules`, if the <u>screen freeze</u> problem occured. Disable the extension first by connect the laptop to a external display
       
       ```bash
       # find the problematic screen (usually the laptop internal screen)
@@ -278,23 +427,3 @@
   - Disable `update-notifier.service` 
   
   - This will <u>***disable***</u> all auto update
-
----
-
-## For KDE desktop
-
-- Set up keybinding
-  
-  - Switch focus window
-  
-  - Switch desktop
-  
-  - Move window to desktop
-  
-  - Move window inside desktop
-  
-  - Meta + B = browser
-  
-  - Meta + Enter = terminal
-    
-    - Meta + ESC = mission center
