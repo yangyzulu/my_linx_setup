@@ -32,11 +32,6 @@
     - git
     - wget
     - curl
-    - neovim
-    - zsh
-    - base-devel
-    - gcc
-    - cmake
     ```
   
   - **Tips :** type `/` for search anything in the list menu, very useful for list selection
@@ -84,7 +79,7 @@
   - Change config file from Snapper to Timeshift
     - `sudo systemctl edit --full grub-btrfsd`
     - Looking for `./snapper` , change to `-t` and save the file
-  - Auto start the daemon `sudo systemctl enable grub-btrfsd` and start it `sudo systemctl enable grub-btrfsd`
+  - Auto start the daemon `sudo systemctl enable grub-btrfsd` and start it `sudo systemctl start grub-btrfsd`
   - Check the service health `journalctl -f`, if no error = OK
 
 - Install [YAY: Yet another Yogurt - An AUR Helper written in Go](https://github.com/Jguer/yay)
